@@ -40,8 +40,8 @@ ENV PHP_INI_POST_MAX_SIZE 8M
 ENV PHP_INI_ALLOW_URL_FOPEN 0
 ENV PHP_INI_DIR /etc/php82
 
-RUN apk update && apk upgrade && \
-    apk add \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache \
         php82 \
         php82-fpm \
         php82-calendar \

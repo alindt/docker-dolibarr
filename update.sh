@@ -7,6 +7,7 @@ DOCKER_PUSH=${DOCKER_PUSH:-0}
 
 BASE_DIR="$( cd "$(dirname "$0")" && pwd )"
 
+# shellcheck disable=SC1091
 source "${BASE_DIR}/versions.sh"
 
 tags=""
@@ -25,22 +26,32 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
   tags="${tags}\n\*"
   dolibarrMajor=$(echo "${dolibarrVersion}" | cut -d. -f1)
 
+  # Mapping version according https://wiki.dolibarr.org/index.php/Versions
+  # Regarding PHP Supported version : https://www.php.net/supported-versions.php
+  if [ "${dolibarrVersion}" = "develop" ] || [ "${dolibarrMajor}" -ge "19" ]; then
+    php_base_images=( "8.2-apache-buster" )
+  elif [ "${dolibarrMajor}" -ge "16" ]; then
+    php_base_images=( "8.1-apache-buster" )
+  else
+    php_base_images=( "7.4-apache-buster" )
+  fi
+
   for php_base_image in "${php_base_images[@]}"; do
     php_version=$(echo "${php_base_image}" | cut -d\- -f1)
 
     if [ "${dolibarrVersion}" = "develop" ]; then
       currentTag="${dolibarrVersion}"
     else
-      currentTag="${dolibarrVersion}-php${php_version}"
+      currentTag="${dolibarrVersion}-php${php_version}-alpine"
       tags="${tags} ${currentTag}"
     fi
 
-    buildOptionTags="--tag tuxgasy/dolibarr:${currentTag}"
+    buildOptionTags="--tag alindt/dolibarr:${currentTag}"
     if [ "${dolibarrVersion}" != "develop" ]; then
-      buildOptionTags="${buildOptionTags} --tag tuxgasy/dolibarr:${dolibarrVersion} --tag tuxgasy/dolibarr:${dolibarrMajor}"
+      buildOptionTags="${buildOptionTags} --tag alindt/dolibarr:${dolibarrVersion}-alpine --tag alindt/dolibarr:${dolibarrMajor}-alpine"
     fi
     if [ "${dolibarrVersion}" = "${DOLIBARR_LATEST_TAG}" ]; then
-      buildOptionTags="${buildOptionTags} --tag tuxgasy/dolibarr:latest"
+      buildOptionTags="${buildOptionTags} --tag alindt/dolibarr:latest"
     fi
 
     dir="${BASE_DIR}/images/${currentTag}"
@@ -50,15 +61,14 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
     sed 's/%DOLI_VERSION%/'"${dolibarrVersion}"'/;' \
     > "${dir}/Dockerfile"
 
-    cp -a "${BASE_DIR}/docker-init.php" "${dir}/docker-init.php"
-    cp -a "${BASE_DIR}/docker-run.sh" "${dir}/docker-run.sh"
+    cp -aR "${BASE_DIR}/container-root/" "${dir}/"
 
     if [ "${DOCKER_BUILD}" = "1" ]; then
       if [ "${DOCKER_PUSH}" = "1" ]; then
         docker buildx build \
           --push \
           --compress \
-          --platform linux/arm/v7,linux/arm64,linux/amd64 \
+          --platform linux/amd64 \
           ${buildOptionTags} \
           "${dir}"
       else
