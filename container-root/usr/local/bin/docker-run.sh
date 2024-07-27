@@ -24,16 +24,18 @@ function get_env_value() {
 		value="$(< "${!fileVarName}")"
 	fi
 
-	echo ${value}
+	echo "${value}"
 	exit 0
 }
 
 function initDolibarr()
 {
+  # shellcheck disable=SC2155
   local CURRENT_UID=$(id -u www-data)
+  # shellcheck disable=SC2155
   local CURRENT_GID=$(id -g www-data)
-  usermod -u ${WWW_USER_ID} www-data
-  groupmod -g ${WWW_GROUP_ID} www-data
+  usermod -u "${WWW_USER_ID}" www-data
+  groupmod -g "${WWW_GROUP_ID}" www-data
 
   if [[ ! -d /var/www/documents ]]; then
     echo "[INIT] => create volume directory /var/www/documents ..."
@@ -41,7 +43,7 @@ function initDolibarr()
   fi
 
   echo "[INIT] => update PHP Config ..."
-  cat > ${PHP_INI_DIR}/conf.d/dolibarr-php.ini << EOF
+  cat > "${PHP_INI_DIR}"/conf.d/dolibarr-php.ini << EOF
 date.timezone = ${PHP_INI_DATE_TIMEZONE}
 sendmail_path = /usr/sbin/sendmail -t -i
 memory_limit = ${PHP_INI_MEMORY_LIMIT}
@@ -72,7 +74,7 @@ if [[ ! -f /var/www/html/conf/conf.php ]]; then
 \$dolibarr_main_prod=${DOLI_PROD};
 ?>
 EOF
-    if [[ ! -z ${DOLI_INSTANCE_UNIQUE_ID} ]]; then
+    if [[ -n ${DOLI_INSTANCE_UNIQUE_ID} ]]; then
       echo "[INIT] => update Dolibarr Config with instance unique id ..."
       echo "\$dolibarr_main_instance_unique_id='${DOLI_INSTANCE_UNIQUE_ID}';" >> /var/www/html/conf/conf.php
     fi
@@ -129,7 +131,7 @@ function waitForDataBase()
   r=1
 
   while [[ ${r} -ne 0 ]]; do
-    mysql -u ${DOLI_DB_USER} --protocol tcp -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} --connect-timeout=5 -e "status" > /dev/null 2>&1
+    mysql -u "${DOLI_DB_USER}" --protocol tcp -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" --connect-timeout=5 -e "status" > /dev/null 2>&1
     r=$?
     if [[ ${r} -ne 0 ]]; then
       echo "Waiting for SQL database to be up ..."
@@ -147,22 +149,22 @@ function lockInstallation()
 
 function runScripts()
 {
-  if [ -d /var/www/scripts/$1 ] ; then
-    for file in /var/www/scripts/$1/*; do
-      [ ! -f $file ] && continue
+  if [ -d /var/www/scripts/"$1" ] ; then
+    for file in /var/www/scripts/"$1"/*; do
+      [ ! -f "$file" ] && continue
 
       # If extension is not in PHP SQL SH, we loop
-      isExec=$(echo "PHP SQL SH" | grep -wio ${file##*.})
+      isExec=$(echo "PHP SQL SH" | grep -wio "${file##*.}")
       [ -z "$isExec" ] && continue
 
-      echo "Importing custom ${isExec} from `basename ${file}` ..."
+      echo "Importing custom ${isExec} from $(basename "${file}") ..."
       if [ "$isExec" == "SQL" ] ; then
-        sed -i 's/--.*//g;' ${file}
-        mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < ${file} > /dev/null 2>&1
+        sed -i 's/--.*//g;' "${file}"
+        mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" < "${file}" > /dev/null 2>&1
       elif [ "$isExec" == "PHP" ] ; then
-        ${PHP_CMD} $file
+        ${PHP_CMD} "$file"
       elif [ "$isExec" == "SH" ] ; then
-        /bin/bash $file
+        /bin/bash "$file"
       fi
     done
   fi
@@ -172,41 +174,41 @@ function initializeDatabase()
 {
   for fileSQL in /var/www/html/install/mysql/tables/*.sql; do
     if [[ ${fileSQL} != *.key.sql ]]; then
-      echo "Importing table from `basename ${fileSQL}` ..."
-      sed -i 's/--.*//g;' ${fileSQL} # remove all comment
-      mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < ${fileSQL}
+      echo "Importing table from $(basename "${fileSQL}") ..."
+      sed -i 's/--.*//g;' "${fileSQL}" # remove all comment
+      mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" < "${fileSQL}"
     fi
   done
 
   for fileSQL in /var/www/html/install/mysql/tables/*.key.sql; do
-    echo "Importing table key from `basename ${fileSQL}` ..."
-    sed -i 's/--.*//g;' ${fileSQL}
-    mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < ${fileSQL} > /dev/null 2>&1
+    echo "Importing table key from $(basename "${fileSQL}") ..."
+    sed -i 's/--.*//g;' "${fileSQL}"
+    mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" < "${fileSQL}" > /dev/null 2>&1
   done
 
   for fileSQL in /var/www/html/install/mysql/functions/*.sql; do
-    echo "Importing `basename ${fileSQL}` ..."
-    sed -i 's/--.*//g;' ${fileSQL}
-    mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < ${fileSQL} > /dev/null 2>&1
+    echo "Importing $(basename "${fileSQL}") ..."
+    sed -i 's/--.*//g;' "${fileSQL}"
+    mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" < "${fileSQL}" > /dev/null 2>&1
   done
 
   for fileSQL in /var/www/html/install/mysql/data/*.sql; do
-    echo "Importing data from `basename ${fileSQL}` ..."
-    sed -i 's/--.*//g;' ${fileSQL}
-    mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < ${fileSQL} > /dev/null 2>&1
+    echo "Importing data from $(basename "${fileSQL}") ..."
+    sed -i 's/--.*//g;' "${fileSQL}"
+    mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" < "${fileSQL}" > /dev/null 2>&1
   done
 
   echo "Create SuperAdmin account ..."
-  pass_crypted=`echo -n ${DOLI_ADMIN_PASSWORD} | md5sum | awk '{print $1}'`
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "INSERT INTO llx_user (entity, login, pass_crypted, lastname, admin, statut) VALUES (0, '${DOLI_ADMIN_LOGIN}', '${pass_crypted}', 'SuperAdmin', 1, 1);" > /dev/null 2>&1
+  pass_crypted=$(echo -n "${DOLI_ADMIN_PASSWORD}" | md5sum | awk '{print $1}')
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "INSERT INTO llx_user (entity, login, pass_crypted, lastname, admin, statut) VALUES (0, '${DOLI_ADMIN_LOGIN}', '${pass_crypted}', 'SuperAdmin', 1, 1);" > /dev/null 2>&1
 
   echo "Set some default const ..."
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "DELETE FROM llx_const WHERE name='MAIN_VERSION_LAST_INSTALL';" > /dev/null 2>&1
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "DELETE FROM llx_const WHERE name='MAIN_NOT_INSTALLED';" > /dev/null 2>&1
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "DELETE FROM llx_const WHERE name='MAIN_LANG_DEFAULT';" > /dev/null 2>&1
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "INSERT INTO llx_const(name,value,type,visible,note,entity) values('MAIN_VERSION_LAST_INSTALL', '${DOLI_VERSION}', 'chaine', 0, 'Dolibarr version when install', 0);" > /dev/null 2>&1
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "INSERT INTO llx_const(name,value,type,visible,note,entity) VALUES ('MAIN_LANG_DEFAULT', 'auto', 'chaine', 0, 'Default language', 1);" > /dev/null 2>&1
-  mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "INSERT INTO llx_const(name,value,type,visible,note,entity) VALUES ('SYSTEMTOOLS_MYSQLDUMP', '/usr/bin/mysqldump', 'chaine', 0, '', 0);" > /dev/null 2>&1
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "DELETE FROM llx_const WHERE name='MAIN_VERSION_LAST_INSTALL';" > /dev/null 2>&1
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "DELETE FROM llx_const WHERE name='MAIN_NOT_INSTALLED';" > /dev/null 2>&1
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "DELETE FROM llx_const WHERE name='MAIN_LANG_DEFAULT';" > /dev/null 2>&1
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "INSERT INTO llx_const(name,value,type,visible,note,entity) values('MAIN_VERSION_LAST_INSTALL', '${DOLI_VERSION}', 'chaine', 0, 'Dolibarr version when install', 0);" > /dev/null 2>&1
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "INSERT INTO llx_const(name,value,type,visible,note,entity) VALUES ('MAIN_LANG_DEFAULT', 'auto', 'chaine', 0, 'Default language', 1);" > /dev/null 2>&1
+  mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "INSERT INTO llx_const(name,value,type,visible,note,entity) VALUES ('SYSTEMTOOLS_MYSQLDUMP', '/usr/bin/mysqldump', 'chaine', 0, '', 0);" > /dev/null 2>&1
 
   echo "Enable user module ..."
   ${PHP_CMD} /var/www/scripts/docker-init.php
@@ -220,11 +222,11 @@ function initializeDatabase()
 
 function migrateDatabase()
 {
-  TARGET_VERSION="$(echo ${DOLI_VERSION} | cut -d. -f1).$(echo ${DOLI_VERSION} | cut -d. -f2).0"
+  TARGET_VERSION="$(echo "${DOLI_VERSION}" | cut -d. -f1).$(echo "${DOLI_VERSION}" | cut -d. -f2).0"
   echo "Schema update is required ..."
   echo "Dumping Database into /var/www/documents/dump.sql ..."
 
-  mysqldump -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} > /var/www/documents/dump.sql
+  mysqldump -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" > /var/www/documents/dump.sql
   r=${?}
   if [[ ${r} -ne 0 ]]; then
     echo "Dump failed ... Aborting migration ..."
@@ -234,15 +236,15 @@ function migrateDatabase()
 
   echo "" > /var/www/documents/migration_error.html
   pushd /var/www/htdocs/install > /dev/null
-  ${PHP_CMD} upgrade.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1 && \
-  ${PHP_CMD} upgrade2.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1 && \
-  ${PHP_CMD} step5.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1
+  ${PHP_CMD} upgrade.php "${INSTALLED_VERSION}" "${TARGET_VERSION}" >> /var/www/documents/migration_error.html 2>&1 && \
+  ${PHP_CMD} upgrade2.php "${INSTALLED_VERSION}" "${TARGET_VERSION}" >> /var/www/documents/migration_error.html 2>&1 && \
+  ${PHP_CMD} step5.php "${INSTALLED_VERSION}" "${TARGET_VERSION}" >> /var/www/documents/migration_error.html 2>&1
   r=$?
   popd > /dev/null
 
   if [[ ${r} -ne 0 ]]; then
     echo "Migration failed ... Restoring DB ... check file /var/www/documents/migration_error.html for more info on error ..."
-    mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < /var/www/documents/dump.sql
+    mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" < /var/www/documents/dump.sql
     echo "DB Restored ..."
     return ${r}
   else
@@ -260,14 +262,14 @@ function run()
   if [[ ${DOLI_INSTALL_AUTO} -eq 1 && ${DOLI_CRON} -ne 1 && ! -f /var/www/documents/install.lock && ${DOLI_DB_TYPE} != "pgsql" ]]; then
     waitForDataBase
 
-    mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "SELECT Q.LAST_INSTALLED_VERSION FROM (SELECT INET_ATON(CONCAT(value, REPEAT('.0', 3 - CHAR_LENGTH(value) + CHAR_LENGTH(REPLACE(value, '.', ''))))) as VERSION_ATON, value as LAST_INSTALLED_VERSION FROM llx_const WHERE name IN ('MAIN_VERSION_LAST_INSTALL', 'MAIN_VERSION_LAST_UPGRADE') and entity=0) Q ORDER BY VERSION_ATON DESC LIMIT 1" > /tmp/lastinstall.result 2>&1
+    mysql -u "${DOLI_DB_USER}" -p"${DOLI_DB_PASSWORD}" -h "${DOLI_DB_HOST}" -P "${DOLI_DB_HOST_PORT}" "${DOLI_DB_NAME}" -e "SELECT Q.LAST_INSTALLED_VERSION FROM (SELECT INET_ATON(CONCAT(value, REPEAT('.0', 3 - CHAR_LENGTH(value) + CHAR_LENGTH(REPLACE(value, '.', ''))))) as VERSION_ATON, value as LAST_INSTALLED_VERSION FROM llx_const WHERE name IN ('MAIN_VERSION_LAST_INSTALL', 'MAIN_VERSION_LAST_UPGRADE') and entity=0) Q ORDER BY VERSION_ATON DESC LIMIT 1" > /tmp/lastinstall.result 2>&1
     r=$?
     if [[ ${r} -ne 0 ]]; then
       initializeDatabase
     else
-      INSTALLED_VERSION=`grep -v LAST_INSTALLED_VERSION /tmp/lastinstall.result`
+      INSTALLED_VERSION=$(grep -v LAST_INSTALLED_VERSION /tmp/lastinstall.result)
       echo "Last installed Version is : ${INSTALLED_VERSION}"
-      if [[ "$(echo ${INSTALLED_VERSION} | cut -d. -f1)" -lt "$(echo ${DOLI_VERSION} | cut -d. -f1)" ]]; then
+      if [[ "$(echo "${INSTALLED_VERSION}" | cut -d. -f1)" -lt "$(echo "${DOLI_VERSION}" | cut -d. -f1)" ]]; then
         migrateDatabase
       else
         echo "Schema update is not required ... Enjoy !!"
