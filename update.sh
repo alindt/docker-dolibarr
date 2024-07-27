@@ -70,12 +70,14 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
           --push \
           --compress \
           --platform linux/amd64 \
+          --sbom=true --provenance=mode=max \
           ${buildOptionTags} \
           "${dir}"
       else
         # shellcheck disable=SC2086
         docker build \
           --compress \
+          --sbom=true --provenance=mode=max \
           ${buildOptionTags} \
           "${dir}"
       fi
