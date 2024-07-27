@@ -4,6 +4,9 @@
 #    ie: get_env_value 'XYZ_DB_PASSWORD' 'example'
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
 #  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
+
+PHP_CMD="php82"
+
 function get_env_value() {
 	local varName="${1}"
 	local fileVarName="${varName}_FILE"
@@ -46,7 +49,7 @@ upload_max_filesize = ${PHP_INI_UPLOAD_MAX_FILESIZE}
 post_max_size = ${PHP_INI_POST_MAX_SIZE}
 allow_url_fopen = ${PHP_INI_ALLOW_URL_FOPEN}
 session.use_strict_mode = 1
-disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,pcntl_async_signals,passthru,shell_exec,system,proc_open,popen
+disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,pcntl_async_signals,passthru,shell_exec,system,proc_open,popen,dl, apache_note, apache_setenv, show_source, virtual
 EOF
 
 if [[ ! -f /var/www/html/conf/conf.php ]]; then
@@ -67,6 +70,7 @@ if [[ ! -f /var/www/html/conf/conf.php ]]; then
 \$dolibarr_main_db_type='${DOLI_DB_TYPE}';
 \$dolibarr_main_authentication='${DOLI_AUTH}';
 \$dolibarr_main_prod=${DOLI_PROD};
+?>
 EOF
     if [[ ! -z ${DOLI_INSTANCE_UNIQUE_ID} ]]; then
       echo "[INIT] => update Dolibarr Config with instance unique id ..."
@@ -85,16 +89,22 @@ EOF
 \$dolibarr_main_auth_ldap_admin_login='${DOLI_LDAP_BIND_DN}';
 \$dolibarr_main_auth_ldap_admin_pass='${DOLI_LDAP_BIND_PASS}';
 \$dolibarr_main_auth_ldap_debug='${DOLI_LDAP_DEBUG}';
+\?>
 EOF
     fi
   fi
 
   echo "[INIT] => update ownership for file in Dolibarr Config ..."
   chown www-data:www-data /var/www/html/conf/conf.php
+  # if [[ ${DOLI_DB_TYPE} == "pgsql" && ! -f /var/www/documents/install.lock ]]; then
+  #   chmod 660 /var/www/html/conf/conf.php
+  # else
+  #   chmod 440 /var/www/html/conf/conf.php
+  # fi
   if [[ ${DOLI_DB_TYPE} == "pgsql" && ! -f /var/www/documents/install.lock ]]; then
-    chmod 600 /var/www/html/conf/conf.php
+    chmod a=rw /var/www/html/conf/conf.php
   else
-    chmod 400 /var/www/html/conf/conf.php
+    chmod a=r /var/www/html/conf/conf.php
   fi
 
   if [[ ${CURRENT_UID} -ne ${WWW_USER_ID} || ${CURRENT_GID} -ne ${WWW_GROUP_ID} ]]; then
@@ -106,6 +116,12 @@ EOF
     echo "[INIT] => update ownership for files in /var/www/documents ..."
     chown -R www-data:www-data /var/www/documents
   fi
+
+  echo "[INIT] => setup fpm..."
+  echo -e "[global]\nerror_log = /dev/stderr" > /etc/php82/php-fpm.d/logging.conf
+
+  echo "[INIT] => setup nginx..."
+  sed -i -re 's#^(\s*(access|error)_log\s+).*(\s.+)#\1/dev/stdout\3#' /etc/nginx/nginx.conf
 }
 
 function waitForDataBase()
@@ -116,7 +132,7 @@ function waitForDataBase()
     mysql -u ${DOLI_DB_USER} --protocol tcp -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} --connect-timeout=5 -e "status" > /dev/null 2>&1
     r=$?
     if [[ ${r} -ne 0 ]]; then
-      echo "Waiting that SQL database is up ..."
+      echo "Waiting for SQL database to be up ..."
       sleep 2
     fi
   done
@@ -144,7 +160,7 @@ function runScripts()
         sed -i 's/--.*//g;' ${file}
         mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} < ${file} > /dev/null 2>&1
       elif [ "$isExec" == "PHP" ] ; then
-        php $file
+        ${PHP_CMD} $file
       elif [ "$isExec" == "SH" ] ; then
         /bin/bash $file
       fi
@@ -193,7 +209,7 @@ function initializeDatabase()
   mysql -u ${DOLI_DB_USER} -p${DOLI_DB_PASSWORD} -h ${DOLI_DB_HOST} -P ${DOLI_DB_HOST_PORT} ${DOLI_DB_NAME} -e "INSERT INTO llx_const(name,value,type,visible,note,entity) VALUES ('SYSTEMTOOLS_MYSQLDUMP', '/usr/bin/mysqldump', 'chaine', 0, '', 0);" > /dev/null 2>&1
 
   echo "Enable user module ..."
-  php /var/www/scripts/docker-init.php
+  ${PHP_CMD} /var/www/scripts/docker-init.php
 
   # Run init scripts
   runScripts "docker-init.d"
@@ -218,9 +234,9 @@ function migrateDatabase()
 
   echo "" > /var/www/documents/migration_error.html
   pushd /var/www/htdocs/install > /dev/null
-  php upgrade.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1 && \
-  php upgrade2.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1 && \
-  php step5.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1
+  ${PHP_CMD} upgrade.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1 && \
+  ${PHP_CMD} upgrade2.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1 && \
+  ${PHP_CMD} step5.php ${INSTALLED_VERSION} ${TARGET_VERSION} >> /var/www/documents/migration_error.html 2>&1
   r=$?
   popd > /dev/null
 
@@ -287,7 +303,7 @@ if [[ ${DOLI_CRON} -eq 1 ]]; then
 fi
 
 if [ "${1#-}" != "$1" ]; then
-  set -- apache2-foreground "$@"
+  set -- nginx-fpm.sh "$@"
 fi
 
 exec "$@"
