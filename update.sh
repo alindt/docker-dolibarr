@@ -23,17 +23,7 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
   echo "Generate Dockerfile for Dolibarr ${dolibarrVersion}"
 
   tags="${tags}\n\*"
-  dolibarrMajor=$(echo ${dolibarrVersion} | cut -d. -f1)
-
-  # Mapping version according https://wiki.dolibarr.org/index.php/Versions
-  # Regarding PHP Supported version : https://www.php.net/supported-versions.php
-  if [ "${dolibarrVersion}" = "develop" ] || [ "${dolibarrMajor}" -ge "19" ]; then
-    php_base_images=( "8.2-apache-buster" )
-  elif [ "${dolibarrMajor}" -ge "16" ]; then
-    php_base_images=( "8.1-apache-buster" )
-  else
-    php_base_images=( "7.4-apache-buster" )
-  fi
+  dolibarrMajor=$(echo "${dolibarrVersion}" | cut -d. -f1)
 
   for php_base_image in "${php_base_images[@]}"; do
     php_version=$(echo "${php_base_image}" | cut -d\- -f1)
