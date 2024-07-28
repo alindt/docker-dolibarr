@@ -64,23 +64,12 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
     cp -aR "${BASE_DIR}/container-root/" "${dir}/"
 
     if [ "${DOCKER_BUILD}" = "1" ]; then
+      PUSH=""
       if [ "${DOCKER_PUSH}" = "1" ]; then
-        # shellcheck disable=SC2086
-        docker buildx build \
-          --push \
-          --compress \
-          --platform linux/amd64 \
-          --sbom=true --provenance=mode=max \
-          ${buildOptionTags} \
-          "${dir}"
-      else
-        # shellcheck disable=SC2086
-        docker build \
-          --compress \
-          --sbom=true --provenance=mode=max \
-          ${buildOptionTags} \
-          "${dir}"
+        PUSH="--push"
       fi
+      # shellcheck disable=SC2086
+      docker build ${PUSH} --compress ${buildOptionTags} "${dir}"
     fi
   done
 
