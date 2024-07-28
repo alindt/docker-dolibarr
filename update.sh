@@ -5,6 +5,8 @@ set -e
 DOCKER_BUILD=${DOCKER_BUILD:-0}
 DOCKER_PUSH=${DOCKER_PUSH:-0}
 
+DOCKER_REGISTRY=${DOCKER_REGISTRY:-registry.lan/dolibarr}
+
 BASE_DIR="$( cd "$(dirname "$0")" && pwd )"
 
 # shellcheck disable=SC1091
@@ -46,12 +48,12 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
       tags="${tags} ${currentTag}"
     fi
 
-    buildOptionTags="--tag alindt/dolibarr:${currentTag}"
+    buildOptionTags="--tag ${DOCKER_REGISTRY}:${currentTag}"
     if [ "${dolibarrVersion}" != "develop" ]; then
-      buildOptionTags="${buildOptionTags} --tag alindt/dolibarr:${dolibarrVersion}-alpine --tag alindt/dolibarr:${dolibarrMajor}-alpine"
+      buildOptionTags="${buildOptionTags} --tag ${DOCKER_REGISTRY}:${dolibarrVersion}-alpine --tag ${DOCKER_REGISTRY}:${dolibarrMajor}-alpine"
     fi
     if [ "${dolibarrVersion}" = "${DOLIBARR_LATEST_TAG}" ]; then
-      buildOptionTags="${buildOptionTags} --tag alindt/dolibarr:latest"
+      buildOptionTags="${buildOptionTags} --tag ${DOCKER_REGISTRY}:latest"
     fi
 
     dir="${BASE_DIR}/images/${currentTag}"
