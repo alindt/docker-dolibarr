@@ -6,6 +6,8 @@ DOCKER_BUILD=${DOCKER_BUILD:-0}
 DOCKER_PUSH=${DOCKER_PUSH:-0}
 
 DOCKER_REGISTRY=${DOCKER_REGISTRY:-registry.lan/dolibarr}
+DOCKER_SBOM=${DOCKER_SBOM:---sbom=true}
+DOCKER_PROVENANCE=${DOCKER_PROVENANCE:---provenance=mode=max}
 
 BASE_DIR="$( cd "$(dirname "$0")" && pwd )"
 
@@ -71,7 +73,7 @@ for dolibarrVersion in "${DOLIBARR_VERSIONS[@]}"; do
         PUSH="--push"
       fi
       # shellcheck disable=SC2086
-      docker build ${PUSH} --compress ${buildOptionTags} "${dir}"
+      docker build ${PUSH} ${DOCKER_PROVENANCE} ${DOCKER_SBOM} --compress ${buildOptionTags} "${dir}"
     fi
   done
 
