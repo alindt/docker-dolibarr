@@ -44,3 +44,17 @@ if (!empty(getenv('DOLI_ENABLE_MODULES'))) {
     }
   }
 }
+
+if (!empty(getenv('DOLI_SECURITY_HASH_ALGO'))) {
+  $sechashalgo = getenv('DOLI_SECURITY_HASH_ALGO');
+} else {
+  $sechashalgo = "password_hash";
+}
+dolibarr_set_const($db, "MAIN_SECURITY_HASH_ALGO", $sechashalgo, 'chaine', 0, '', $conf->entity);
+
+if (!empty(getenv('DOLI_ALWAYS_CREATE_LOCK_AFTER_LAST_UPGRADE'))) {
+  $createlock = getenv('DOLI_ALWAYS_CREATE_LOCK_AFTER_LAST_UPGRADE');
+} else {
+  $createlock = 1;
+}
+dolibarr_set_const($db, "MAIN_ALWAYS_CREATE_LOCK_AFTER_LAST_UPGRADE", $createlock, 'chaine', 0, '', $conf->entity);
