@@ -69,6 +69,7 @@ RUN apk upgrade --no-cache && \
 # Get Dolibarr
 RUN \
     useradd -l -r -u 82 -G www-data  -s /sbin/nologin -g www-data -d /var/www www-data && \
+    usermod -a -G www-data nobody && \
     mkdir -p /var/www/documents && \
     mkdir -p /var/www/html/custom && \
     curl -fLSs https://github.com/Dolibarr/dolibarr/archive/${DOLI_VERSION}.tar.gz |\
@@ -77,7 +78,9 @@ RUN \
     ln -s /var/www/html /var/www/htdocs && \
     cp -r /tmp/dolibarr-${DOLI_VERSION}/scripts /var/www/ && \
     rm -rf /tmp/* && \
-    chown -R www-data:www-data /var/www
+    chown -R www-data:www-data /var/www && \
+    chmod -R a=rX /var/www/html && \
+    chmod -R o= /var/www/html/conf
 
 EXPOSE 80
 
